@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QR Code Generator</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: sans-serif;
+      width: 250px;
+      padding: 10px;
+    }
+    #qrcode {
+      margin: 10px auto;
+      width: 200px;
+      height: 200px;
+      border: 1px solid #ccc;
+    }
+    input[type="text"] {
+      width: calc(100% - 22px);
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 8px 15px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <input type="text" id="customText" placeholder="Enter custom text (optional)">
+  <button id="generateQrButton">Generate Custom QR</button>
+  <div id="qrcode"></div>
+  <script src="qrcode.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
