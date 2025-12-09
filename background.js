@@ -1,82 +1,103 @@
-importScripts('index.min.js');
+importScripts('index.min.js'); // Keep this for potential other uses or if ZXing is needed directly in SW for other features
 
-// The ZXing library is loaded before this script via the manifest.
+let offscreenCreating; // A global promise to avoid concurrency issues
+
+async function setupOffscreenDocument(path) {
+    // Check if an offscreen document is already open
+    const offscreenUrl = chrome.runtime.getURL(path);
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+        documentUrls: [offscreenUrl]
+    });
+
+    if (existingContexts.length > 0) {
+        return; // An offscreen document is already open
+    }
+
+    // Create a new offscreen document
+    if (offscreenCreating) {
+        await offscreenCreating;
+    } else {
+        offscreenCreating = chrome.offscreen.createDocument({
+            url: path,
+            reasons: ['CLIPBOARD'], // Use a relevant reason, e.g., 'CLIPBOARD' or 'DOM_SCRAPING'
+            justification: 'Needed for QR code scanning with DOM access',
+        });
+        await offscreenCreating;
+        offscreenCreating = null;
+    }
+}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'QR_CROP_DATA') {
-        // The library should be available now in the global scope (self).
-        if (typeof ZXing === 'undefined') {
-            alert('Scan failed: ZXing library not loaded.');
-            return;
-        }
+        (async () => {
+            try {
+                await setupOffscreenDocument('offscreen.html');
 
-        chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-            if (chrome.runtime.lastError || !dataUrl) {
-                alert('Error: Could not capture tab.');
-                return;
-            }
+                chrome.tabs.captureVisibleTab(null, { format: 'png' }, async (dataUrl) => {
+                    if (chrome.runtime.lastError || !dataUrl) {
+                        const errorMessage = 'Error: Could not capture tab.';
+                        chrome.scripting.executeScript({
+                            target: { tabId: sender.tab.id },
+                            func: (message) => { alert(message); },
+                            args: [errorMessage]
+                        });
+                        sendResponse({ error: errorMessage });
+                        return;
+                    }
 
-            const image = new Image();
-            image.onload = function() {
-                try {
-                    const cropCanvas = document.createElement('canvas');
-                    cropCanvas.width = request.crop.width;
-                    cropCanvas.height = request.crop.height;
-                    const cropCtx = cropCanvas.getContext('2d');
-
-                    cropCtx.drawImage(
-                        image,
-                        request.crop.x, request.crop.y,
-                        request.crop.width, request.crop.height,
-                        0, 0,
-                        request.crop.width, request.height
-                    );
-
-                    // Use the core ZXing library functions directly
-                    const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(cropCanvas);
-                    const hybridBinarizer = new ZXing.HybridBinarizer(luminanceSource);
-                    const binaryBitmap = new ZXing.BinaryBitmap(hybridBinarizer);
-                    
-                    const qrReader = new ZXing.QRCodeReader();
-                    const result = qrReader.decode(binaryBitmap);
-
-                    const resultText = result.getText();
-                    chrome.scripting.executeScript({
-                        target: { tabId: sender.tab.id },
-                        func: (message) => {
-                            alert(message);
-                            try {
-                                navigator.clipboard.writeText(message).then(() => {
-                                    console.log('QR code result copied to clipboard!');
-                                }).catch(err => {
-                                    console.error('Failed to copy QR code result to clipboard:', err);
-                                });
-                            } catch (err) {
-                                console.error('Clipboard API not available or failed:', err);
-                            }
-                        },
-                        args: [resultText]
+                    // Send the image data to the offscreen document for processing
+                    const response = await chrome.runtime.sendMessage({
+                        type: 'SCAN_QR_CODE',
+                        dataUrl: dataUrl,
+                        crop: request.crop
                     });
 
-                } catch (err) {
-                    // The 'decode' method throws an error if no QR code is found.
-                    chrome.scripting.executeScript({
-                        target: { tabId: sender.tab.id },
-                        func: (message) => { alert(message); },
-                        args: ['No QR code found in selection.']
-                    });
-                }
-            };
-            image.onerror = function() {
+                    if (response && response.type === 'QR_SCAN_RESULT') {
+                        chrome.scripting.executeScript({
+                            target: { tabId: sender.tab.id },
+                            func: (message) => {
+                                alert(message);
+                                try {
+                                    navigator.clipboard.writeText(message).then(() => {
+                                        console.log('QR code result copied to clipboard!');
+                                    }).catch(err => {
+                                        console.error('Failed to copy QR code result to clipboard:', err);
+                                    });
+                                } catch (err) {
+                                    console.error('Clipboard API not available or failed:', err);
+                                }
+                            },
+                            args: [response.result]
+                        });
+                        sendResponse({ success: true });
+                    } else if (response && response.type === 'QR_SCAN_ERROR') {
+                        chrome.scripting.executeScript({
+                            target: { tabId: sender.tab.id },
+                            func: (message) => { alert(message); },
+                            args: [response.error]
+                        });
+                        sendResponse({ error: response.error });
+                    } else {
+                        const errorMessage = 'Unknown response from offscreen document.';
+                        chrome.scripting.executeScript({
+                            target: { tabId: sender.tab.id },
+                            func: (message) => { alert(message); },
+                            args: [errorMessage]
+                        });
+                        sendResponse({ error: errorMessage });
+                    }
+                });
+            } catch (error) {
+                const errorMessage = `Background script error: ${error.message}`;
                 chrome.scripting.executeScript({
                     target: { tabId: sender.tab.id },
                     func: (message) => { alert(message); },
-                    args: ['Failed to load captured image for scanning.']
+                    args: [errorMessage]
                 });
-            };
-            image.src = dataUrl;
-        });
+                sendResponse({ error: errorMessage });
+            }
+        })();
+        return true; // Keep message channel open for async response
     }
-    return true; // Keep message channel open for async response
 });
-

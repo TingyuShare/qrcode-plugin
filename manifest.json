@@ -10,7 +10,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "clipboardWrite"
+    "clipboardWrite",
+    "offscreen"
   ],
   "background": {
     "service_worker": "background.js"
