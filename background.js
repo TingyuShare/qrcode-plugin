@@ -41,7 +41,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     const resultText = result.getText();
                     chrome.scripting.executeScript({
                         target: { tabId: sender.tab.id },
-                        func: (message) => { alert(message); },
+                        func: (message) => {
+                            alert(message);
+                            try {
+                                navigator.clipboard.writeText(message).then(() => {
+                                    console.log('QR code result copied to clipboard!');
+                                }).catch(err => {
+                                    console.error('Failed to copy QR code result to clipboard:', err);
+                                });
+                            } catch (err) {
+                                console.error('Clipboard API not available or failed:', err);
+                            }
+                        },
                         args: [resultText]
                     });
 

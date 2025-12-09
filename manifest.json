@@ -9,7 +9,8 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "clipboardWrite"
   ],
   "background": {
     "scripts": ["index.min.js", "background.js"]
