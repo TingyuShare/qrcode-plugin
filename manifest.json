@@ -1,17 +1,22 @@
 {
-  "manifest_version": 2,
-  "name": "QR Code Generator",
-  "version": "1.0",
-  "description": "Generates a QR code for the current page URL or custom text.",
+  "manifest_version": 3,
+  "name": "QR Code Generator and Scanner",
+  "version": "2.0",
+  "description": "Generates or scans a QR code for the current page.",
   "icons": {
     "32": "icons/icon.png"
   },
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "scripting",
+    "storage"
   ],
-  "browser_action": {
+  "background": {
+    "scripts": ["index.min.js", "background.js"]
+  },
+  "action": {
     "default_icon": "icons/icon.png",
-    "default_title": "Generate QR Code",
+    "default_title": "Generate or Scan QR Code",
     "default_popup": "popup.html"
   }
 }

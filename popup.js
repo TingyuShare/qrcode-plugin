@@ -13,40 +13,66 @@ function generateQRCode(text) {
 
 document.addEventListener('DOMContentLoaded', function() {
   const customTextInput = document.getElementById('customText');
-  const generateQrButton = document.getElementById('generateQrButton');
+  const scanBtn = document.getElementById('scanBtn');
+  const resultDiv = document.getElementById('result');
+  let tabUrl = '';
 
-  // Get current tab URL and generate QR code
-  browser.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+  // Get current tab URL and generate initial QR code
+  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
     if (tabs[0] && tabs[0].url) {
-      generateQRCode(tabs[0].url);
-      customTextInput.placeholder = tabs[0].url;
+      tabUrl = tabs[0].url;
+      generateQRCode(tabUrl);
+      customTextInput.placeholder = tabUrl;
     } else {
-        // Fallback if URL can't be fetched (e.g., new tab page)
-        generateQRCode("Unable to fetch current URL");
+      const fallbackText = "Unable to fetch current URL";
+      generateQRCode(fallbackText);
+      customTextInput.placeholder = fallbackText;
     }
   });
 
-  generateQrButton.addEventListener('click', function() {
+  // Real-time QR code generation on input
+  customTextInput.addEventListener('input', function() {
     const textToEncode = customTextInput.value.trim();
     if (textToEncode) {
       generateQRCode(textToEncode);
     } else {
-      // If input is empty, try to use current tab URL again
-      browser.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-        if (tabs[0] && tabs[0].url) {
-          generateQRCode(tabs[0].url);
-        }
-      });
+      if (tabUrl) {
+        generateQRCode(tabUrl);
+      }
     }
   });
 
-  // Optional: Regenerate QR if text is entered and enter is pressed
-  customTextInput.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-      const textToEncode = customTextInput.value.trim();
-      if (textToEncode) {
-        generateQRCode(textToEncode);
+  // When the scan button is clicked, inject the cropping scripts
+  scanBtn.addEventListener('click', function() {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      const activeTab = tabs[0];
+      if (!activeTab || !activeTab.id) {
+        resultDiv.textContent = "Could not find active tab.";
+        return;
       }
-    }
+      
+      // Inject CSS and the content script
+      chrome.scripting.insertCSS({
+        target: { tabId: activeTab.id },
+        files: ['cropper.css']
+      }, () => {
+        if (chrome.runtime.lastError) {
+            resultDiv.textContent = "Error injecting CSS: " + chrome.runtime.lastError.message;
+            return;
+        }
+        chrome.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            files: ['cropper.js']
+        }, () => {
+            if (chrome.runtime.lastError) {
+                resultDiv.textContent = "Error injecting script: " + chrome.runtime.lastError.message;
+                return;
+            }
+            // The popup will close automatically when the user clicks away from it.
+            // Programmatically closing it here can cause race conditions and errors in Firefox.
+            // window.close();
+        });
+      });
+    });
   });
 });
