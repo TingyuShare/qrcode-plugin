@@ -1,3 +1,5 @@
+importScripts('index.min.js');
+
 // The ZXing library is loaded before this script via the manifest.
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -27,7 +29,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         request.crop.x, request.crop.y,
                         request.crop.width, request.crop.height,
                         0, 0,
-                        request.crop.width, request.crop.height
+                        request.crop.width, request.height
                     );
 
                     // Use the core ZXing library functions directly
