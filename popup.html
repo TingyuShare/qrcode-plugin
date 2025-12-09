@@ -15,21 +15,32 @@
       height: 200px;
       border: 1px solid #ccc;
     }
-    input[type="text"] {
-      width: calc(100% - 22px);
-      padding: 5px;
+    .input-container {
+      display: flex;
+      align-items: center;
       margin-bottom: 10px;
     }
-    button {
-      padding: 8px 15px;
+    #customText {
+      flex-grow: 1;
+      padding: 5px;
+      margin-right: 5px; /* Space between input and button */
+    }
+    #scanBtn {
+      padding: 5px 8px; /* Adjust padding for emoji button */
       cursor: pointer;
+      font-size: 1.2em; /* Make emoji larger */
+      border: 1px solid #ccc;
+      background-color: #f0f0f0;
+      border-radius: 3px;
     }
   </style>
 </head>
 <body>
-  <input type="text" id="customText" placeholder="Enter custom text (optional)">
+  <div class="input-container">
+    <input type="text" id="customText" placeholder="Enter custom text (optional)">
+    <button id="scanBtn" title="Scan QR from Page">🔳</button>
+  </div>
   <div id="qrcode"></div>
-  <button id="scanBtn">Scan QR from Page</button>
   <div id="result"></div>
   <script src="qrcode.js"></script>
   <script src="popup.js"></script>
